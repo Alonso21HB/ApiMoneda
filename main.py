@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 import requests
 
+app = FastAPI()
 
 API_KEY = 'd7eaba510816031d2ab424b5'
 url = f'https://v6.exchangerate-api.com/v6/{API_KEY}/latest/USD'
