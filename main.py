@@ -1,10 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 import requests
 
 app = FastAPI()
 
 API_KEY = 'd7eaba510816031d2ab424b5'
 url = f'https://v6.exchangerate-api.com/v6/{API_KEY}/latest/USD'
+
+
+class ConversionRequest(BaseModel):
+    cantidad: float
+    moneda_origen: str
+    moneda_destino: str
 
 
 def obtener_conversion():
@@ -25,29 +32,26 @@ def convertir_moneda(cantidad, moneda_origen, moneda_destino):
     tasas_conversion = obtener_conversion()
 
     if tasas_conversion is None:
-        return
+        return None
 
     if moneda_origen not in tasas_conversion:
-        print(f"Moneda de origen {moneda_origen} no válida.")
-        return
-
+        raise HTTPException(status_code=400, detail=f"Moneda de origen {moneda_origen} no válida.")
+    
     if moneda_destino not in tasas_conversion:
-        print(f"Moneda de destino {moneda_destino} no válida.")
-        return
+        raise HTTPException(status_code=400, detail=f"Moneda de destino {moneda_destino} no válida.")
 
     cantidad_en_usd = cantidad / tasas_conversion[moneda_origen]
-
     cantidad_convertida = cantidad_en_usd * tasas_conversion[moneda_destino]
 
-    print(f"{cantidad} {moneda_origen} es equivalente a {cantidad_convertida:.2f} {moneda_destino}")
+    return {"cantidad_convertida": round(cantidad_convertida, 2)}
 
 
-if __name__ == "__main__":
-    cantidad = float(input("Introduce la cantidad que deseas convertir: "))
-    moneda_origen = input("Introduce la moneda de origen (por ejemplo, USD, EUR, PEN): ").upper()
-    moneda_destino = input("Introduce la moneda de destino (por ejemplo, USD, EUR, PEN): ").upper()
-
-    # Llamar a la función de conversión
-    convertir_moneda(cantidad, moneda_origen, moneda_destino)
-
-
+@app.post("/convertir/")
+async def convertir(data: ConversionRequest):
+    resultado = convertir_moneda(data.cantidad, data.moneda_origen.upper(), data.moneda_destino.upper())
+    
+    if resultado is None:
+        raise HTTPException(status_code=500, detail="Error al obtener la conversión.")
+    
+    return {"cantidad": data.cantidad, "moneda_origen": data.moneda_origen, 
+            "moneda_destino": data.moneda_destino, "cantidad_convertida": resultado["cantidad_convertida"]}
